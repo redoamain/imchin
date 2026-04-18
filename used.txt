@@ -1,0 +1,6 @@
+python -m venv venv
+source venv/bin/activate ->zsh
+source venv/bin/activate.fish  ->fish
+pip install streamlit sqlalchemy pyodbc pandas openpyxl
+
+yay -S msodbcsql17
