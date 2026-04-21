@@ -4,3 +4,4 @@ source venv/bin/activate.fish  ->fish
 pip install streamlit sqlalchemy pyodbc pandas openpyxl
 
 yay -S msodbcsql17
+stre

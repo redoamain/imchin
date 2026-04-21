@@ -9,7 +9,7 @@ from datetime import datetime
 SERVER = '127.0.0.1'
 DATABASE = 'CP'
 USERNAME = 'sa'
-PASSWORD = 'myPass123'
+PASSWORD = 'myPass123!'
 
 def get_connection():
     conn_str = (
@@ -22,12 +22,13 @@ def get_connection():
     )
     return pyodbc.connect(conn_str)
 
-def update_itemname2(itemid, new_itemname2):
+def update_item_columns(itemid, new_itemname2, new_spec, new_warna, new_bahan):
+    """Update multiple columns: ItemName2, Spec, warna, bahan"""
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        query = "UPDATE taGoods SET ItemName2 = ? WHERE ItemID = ?"
-        cursor.execute(query, (new_itemname2, str(itemid)))
+        query = "UPDATE taGoods SET ItemName2 = ?, Spec = ?, warna = ?, bahan = ? WHERE ItemID = ?"
+        cursor.execute(query, (new_itemname2, new_spec, new_warna, new_bahan, str(itemid)))
         conn.commit()
         affected = cursor.rowcount
         cursor.close()
@@ -39,11 +40,11 @@ def update_itemname2(itemid, new_itemname2):
         return False, f"Error: {e}"
 
 def fetch_all_data():
-    """Ambil SEMUA data tanpa batasan"""
+    """Ambil SEMUA data dengan kolom baru"""
     try:
         conn = get_connection()
-        # HAPUS TOP jika ada, ambil semua data
-        query = "SELECT ItemID, ItemName2 FROM taGoods ORDER BY ItemID"
+        # Menambahkan kolom Spec, warna, bahan
+        query = "SELECT ItemID, ItemName2, Spec, warna, bahan FROM taGoods ORDER BY ItemID"
         df = pd.read_sql(query, conn)
         conn.close()
         return df
@@ -65,18 +66,26 @@ def get_total_count():
         return 0
 
 def create_template_excel():
+    """Template Excel dengan kolom lengkap"""
     template_df = pd.DataFrame({
         'ItemID': ['contoh_id_1', 'contoh_id_2', 'contoh_id_3'],
-        'ItemName2': ['4双本体中心', '测试汉字', '日本語テスト']
+        'ItemName2': ['4双本体中心', '测试汉字', '日本語テスト'],
+        'Spec': ['Spec A', 'Spec B', 'Spec C'],
+        'warna': ['Merah', 'Biru', 'Hijau'],
+        'bahan': ['Kayu', 'Plastik', 'Logam']
     })
     return template_df
 
 def bulk_update(excel_file):
+    """Bulk update dengan kolom baru"""
     try:
         df = pd.read_excel(excel_file)
-        required_cols = ['ItemID', 'ItemName2']
-        if not all(col in df.columns for col in required_cols):
-            return False, 0, 0, f"File harus memiliki kolom: {', '.join(required_cols)}"
+        required_cols = ['ItemID', 'ItemName2', 'Spec', 'warna', 'bahan']
+        
+        # Cek kolom yang diperlukan
+        missing_cols = [col for col in required_cols if col not in df.columns]
+        if missing_cols:
+            return False, 0, 0, f"File harus memiliki kolom: {', '.join(required_cols)}. Missing: {', '.join(missing_cols)}"
         
         conn = get_connection()
         cursor = conn.cursor()
@@ -86,8 +95,16 @@ def bulk_update(excel_file):
         for _, row in df.iterrows():
             try:
                 cursor.execute(
-                    "UPDATE taGoods SET ItemName2 = ? WHERE ItemID = ?",
-                    (str(row['ItemName2']), str(row['ItemID']))
+                    """UPDATE taGoods 
+                       SET ItemName2 = ?, Spec = ?, warna = ?, bahan = ? 
+                       WHERE ItemID = ?""",
+                    (
+                        str(row['ItemName2']), 
+                        str(row['Spec']), 
+                        str(row['warna']), 
+                        str(row['bahan']),
+                        str(row['ItemID'])
+                    )
                 )
                 if cursor.rowcount > 0:
                     success_count += 1
@@ -157,32 +174,44 @@ def main():
     # Tab
     tab1, tab2, tab3 = st.tabs(["✏️ Update Single", "📊 Bulk Update Excel", "🔍 Cari & Update"])
     
-    # TAB 1: Update Single
+    # TAB 1: Update Single dengan kolom baru
     with tab1:
         st.subheader("Update Single Data")
         
-        col1, col2 = st.columns(2)
-        with col1:
-            itemid = st.text_input("Item ID", placeholder="Contoh: 01B022BK", key="single_id")
-        with col2:
-            new_value = st.text_input("ItemName2 (Baru)", placeholder="Contoh: 4双本体中心", key="single_value")
-        
-        if st.button("🚀 Update Data", type="primary", key="single_btn"):
-            if itemid and new_value:
-                with st.spinner(f"💾 Menyimpan data..."):
-                    time.sleep(0.5)
-                    success, message = update_itemname2(itemid, new_value)
-                    if success:
-                        st.success(message)
-                        st.balloons()
-                        time.sleep(1)
-                        st.rerun()
-                    else:
-                        st.error(message)
-            else:
-                st.warning("Harap isi Item ID dan nilai baru!")
+        # Form untuk input data
+        with st.form(key="single_update_form"):
+            col1, col2 = st.columns(2)
+            with col1:
+                itemid = st.text_input("Item ID *", placeholder="Contoh: 01B022BK", key="single_id")
+            
+            st.markdown("---")
+            
+            col3, col4 = st.columns(2)
+            with col3:
+                new_itemname2 = st.text_input("ItemName2", placeholder="Contoh: 4双本体中心", key="single_itemname2")
+                new_warna = st.text_input("Warna", placeholder="Contoh: Merah, Biru, Hijau", key="single_warna")
+            with col4:
+                new_spec = st.text_input("Spec", placeholder="Contoh: Type A, Type B", key="single_spec")
+                new_bahan = st.text_input("Bahan", placeholder="Contoh: Kayu, Plastik, Logam", key="single_bahan")
+            
+            submit_button = st.form_submit_button("🚀 Update Data", type="primary")
+            
+            if submit_button:
+                if itemid:
+                    with st.spinner(f"💾 Menyimpan data..."):
+                        time.sleep(0.5)
+                        success, message = update_item_columns(itemid, new_itemname2, new_spec, new_warna, new_bahan)
+                        if success:
+                            st.success(message)
+                            st.balloons()
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error(message)
+                else:
+                    st.warning("Harap isi Item ID!")
     
-    # TAB 2: Bulk Update
+    # TAB 2: Bulk Update dengan kolom baru
     with tab2:
         st.subheader("Bulk Update via Excel")
         
@@ -200,7 +229,8 @@ def main():
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
         
-        st.markdown("**Kolom yang diperlukan:** `ItemID` dan `ItemName2`")
+        st.markdown("**Kolom yang diperlukan:** `ItemID`, `ItemName2`, `Spec`, `warna`, `bahan`")
+        st.info("💡 Pastikan semua kolom terisi. Kolom yang kosong akan diupdate menjadi nilai kosong.")
         
         uploaded_file = st.file_uploader("Pilih file Excel", type=['xlsx', 'xls'], key="bulk_file")
         
@@ -209,23 +239,25 @@ def main():
             st.write("**Preview data:**")
             st.dataframe(preview_df.head(10), use_container_width=True)
             
-            if st.button("🚀 Jalankan Bulk Update", type="primary", key="bulk_btn"):
-                with st.spinner("📊 Memproses bulk update..."):
-                    success, success_count, total, fail_list = bulk_update(uploaded_file)
-                    
-                    if success:
-                        st.success(f"✅ Berhasil update {success_count} dari {total} data!")
-                        if success_count > 0:
-                            st.balloons()
-                        if fail_list and len(fail_list) > 0:
-                            st.warning(f"⚠️ {len(fail_list)} data gagal:")
-                            st.dataframe(pd.DataFrame(fail_list))
-                        time.sleep(1)
-                        st.rerun()
-                    else:
-                        st.error(f"❌ Error: {fail_list}")
+            col1, col2 = st.columns([1, 4])
+            with col1:
+                if st.button("🚀 Jalankan Bulk Update", type="primary", key="bulk_btn"):
+                    with st.spinner("📊 Memproses bulk update..."):
+                        success, success_count, total, fail_list = bulk_update(uploaded_file)
+                        
+                        if success:
+                            st.success(f"✅ Berhasil update {success_count} dari {total} data!")
+                            if success_count > 0:
+                                st.balloons()
+                            if fail_list and len(fail_list) > 0:
+                                st.warning(f"⚠️ {len(fail_list)} data gagal:")
+                                st.dataframe(pd.DataFrame(fail_list))
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error(f"❌ Error: {fail_list}")
     
-    # TAB 3: Cari & Update
+    # TAB 3: Cari & Update dengan kolom baru
     with tab3:
         st.subheader("Cari Data")
         
@@ -236,7 +268,10 @@ def main():
                 try:
                     conn = get_connection()
                     cursor = conn.cursor()
-                    cursor.execute("SELECT ItemID, ItemName2 FROM taGoods WHERE ItemID = ?", (search_id,))
+                    cursor.execute(
+                        "SELECT ItemID, ItemName2, Spec, warna, bahan FROM taGoods WHERE ItemID = ?", 
+                        (search_id,)
+                    )
                     result = cursor.fetchone()
                     conn.close()
                 except Exception as e:
@@ -246,18 +281,31 @@ def main():
             if result:
                 st.success(f"✅ Data ditemukan!")
                 
+                # Tampilkan data saat ini
                 col_show1, col_show2 = st.columns(2)
                 with col_show1:
                     st.info(f"**Item ID:** {result[0]}")
+                    st.info(f"**Current ItemName2:** {result[1] if result[1] else '(kosong)'}")
+                    st.info(f"**Current Spec:** {result[2] if result[2] else '(kosong)'}")
                 with col_show2:
-                    st.info(f"**Current Value:** {result[1] if result[1] else '(kosong)'}")
+                    st.info(f"**Current Warna:** {result[3] if result[3] else '(kosong)'}")
+                    st.info(f"**Current Bahan:** {result[4] if result[4] else '(kosong)'}")
                 
-                new_value = st.text_input("Nilai baru", value=result[1] if result[1] else "", key="search_value")
+                st.markdown("---")
+                st.subheader("Update Data")
                 
-                if st.button("Update", type="primary", key="search_btn"):
-                    if new_value:
+                # Form untuk update data
+                with st.form(key="search_update_form"):
+                    new_itemname2 = st.text_input("ItemName2 (Baru)", value=result[1] if result[1] else "", key="search_itemname2")
+                    new_spec = st.text_input("Spec (Baru)", value=result[2] if result[2] else "", key="search_spec")
+                    new_warna = st.text_input("Warna (Baru)", value=result[3] if result[3] else "", key="search_warna")
+                    new_bahan = st.text_input("Bahan (Baru)", value=result[4] if result[4] else "", key="search_bahan")
+                    
+                    update_button = st.form_submit_button("Update Data", type="primary")
+                    
+                    if update_button:
                         with st.spinner("💾 Mengupdate..."):
-                            success, message = update_itemname2(search_id, new_value)
+                            success, message = update_item_columns(search_id, new_itemname2, new_spec, new_warna, new_bahan)
                             if success:
                                 st.success(message)
                                 st.balloons()
@@ -265,8 +313,6 @@ def main():
                                 st.rerun()
                             else:
                                 st.error(message)
-                    else:
-                        st.warning("Harap isi nilai baru!")
             else:
                 st.error(f"❌ Item ID '{search_id}' tidak ditemukan!")
     
