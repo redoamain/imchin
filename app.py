@@ -23,11 +23,11 @@ def get_connection():
     return pyodbc.connect(conn_str)
 
 def update_item_columns(itemid, new_itemname2, new_spec, new_warna, new_bahan):
-    """Update multiple columns: ItemName2, Spec, warna, bahan"""
+    """Update multiple columns: ItemName2, Spec, warnac, bahan"""
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        query = "UPDATE taGoods SET ItemName2 = ?, Spec = ?, warna = ?, bahan = ? WHERE ItemID = ?"
+        query = "UPDATE taGoods SET ItemName2 = ?, Spec = ?, warnac = ?, bahan = ? WHERE ItemID = ?"
         cursor.execute(query, (new_itemname2, new_spec, new_warna, new_bahan, str(itemid)))
         conn.commit()
         affected = cursor.rowcount
@@ -43,8 +43,8 @@ def fetch_all_data():
     """Ambil SEMUA data dengan kolom baru"""
     try:
         conn = get_connection()
-        # Menambahkan kolom Spec, warna, bahan
-        query = "SELECT ItemID, ItemName2, Spec, warna, bahan FROM taGoods ORDER BY ItemID"
+        # Menambahkan kolom Spec, warnac, bahan
+        query = "SELECT ItemID, ItemName2, Spec, warnac, bahan FROM taGoods ORDER BY ItemID"
         df = pd.read_sql(query, conn)
         conn.close()
         return df
@@ -71,7 +71,7 @@ def create_template_excel():
         'ItemID': ['contoh_id_1', 'contoh_id_2', 'contoh_id_3'],
         'ItemName2': ['4双本体中心', '测试汉字', '日本語テスト'],
         'Spec': ['Spec A', 'Spec B', 'Spec C'],
-        'warna': ['Merah', 'Biru', 'Hijau'],
+        'warnac': ['Merah', 'Biru', 'Hijau'],
         'bahan': ['Kayu', 'Plastik', 'Logam']
     })
     return template_df
@@ -80,7 +80,7 @@ def bulk_update(excel_file):
     """Bulk update dengan kolom baru"""
     try:
         df = pd.read_excel(excel_file)
-        required_cols = ['ItemID', 'ItemName2', 'Spec', 'warna', 'bahan']
+        required_cols = ['ItemID', 'ItemName2', 'Spec', 'warnac', 'bahan']
         
         # Cek kolom yang diperlukan
         missing_cols = [col for col in required_cols if col not in df.columns]
@@ -96,12 +96,12 @@ def bulk_update(excel_file):
             try:
                 cursor.execute(
                     """UPDATE taGoods 
-                       SET ItemName2 = ?, Spec = ?, warna = ?, bahan = ? 
+                       SET ItemName2 = ?, Spec = ?, warnac = ?, bahan = ? 
                        WHERE ItemID = ?""",
                     (
                         str(row['ItemName2']), 
                         str(row['Spec']), 
-                        str(row['warna']), 
+                        str(row['warnac']), 
                         str(row['bahan']),
                         str(row['ItemID'])
                     )
@@ -229,7 +229,7 @@ def main():
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
         
-        st.markdown("**Kolom yang diperlukan:** `ItemID`, `ItemName2`, `Spec`, `warna`, `bahan`")
+        st.markdown("**Kolom yang diperlukan:** `ItemID`, `ItemName2`, `Spec`, `warnac`, `bahan`")
         st.info("💡 Pastikan semua kolom terisi. Kolom yang kosong akan diupdate menjadi nilai kosong.")
         
         uploaded_file = st.file_uploader("Pilih file Excel", type=['xlsx', 'xls'], key="bulk_file")
@@ -269,7 +269,7 @@ def main():
                     conn = get_connection()
                     cursor = conn.cursor()
                     cursor.execute(
-                        "SELECT ItemID, ItemName2, Spec, warna, bahan FROM taGoods WHERE ItemID = ?", 
+                        "SELECT ItemID, ItemName2, Spec, warnac, bahan FROM taGoods WHERE ItemID = ?", 
                         (search_id,)
                     )
                     result = cursor.fetchone()
